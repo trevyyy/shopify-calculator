@@ -76,7 +76,7 @@ if 'shopify_df' in st.session_state:
             st.info(f'Check {artist_data["name"]}\'s product listings: did you mean **"{f[1]}"** instead of **"{f[0]}"**?')
 
     person_df = st.session_state['shopify_df'][st.session_state['shopify_df']['Product'].isin(artist_data['items'])]
-    person_df['Percentage'] = [0.2 if f == 'Unframed' else 0.1 for f in person_df['Frame']]
+    person_df['Percentage'] = [artist_data["unframed"] if f == 'Unframed' else artist_data["framed"] for f in person_df['Frame']]
     person_df['Cut'] = person_df['Sales'] * person_df['Percentage']
 
     st.write(f'No. of orders: **{len(st.session_state["shopify_df"])}**')

@@ -19,7 +19,8 @@ for i, a in enumerate(st.session_state['artists']):
     col1.caption(f'{framed:.0%}')
     unframed = col2.number_input('Unframed rate', value=a['unframed'], max_value=1.0)
     col2.caption(f'{unframed:.0%}')
-    new_data.append({'name': name, 'items': [i.strip() for i in items.splitlines() if i.strip()]})
+    new_data.append({'name': name, 'items': [i.strip() for i in items.splitlines() if i.strip()],
+                     'framed': framed, 'unframed': unframed})
     st.write('---')
 
 if st.button('Save'):

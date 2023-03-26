@@ -39,7 +39,7 @@ def split_name(product_listing):
     return None
 
 
-@st.cache
+@st.cache_data
 def convert_df(df):
     return df.to_csv().encode('utf-8')
 
@@ -61,16 +61,22 @@ if 'shopify_df' in st.session_state:
     st.write('---')
 
     fuzzy_matches = []
+    exact_matches = []
     for item in artist_data['items']:
         exact_match_found = False
         temp_matches = []
         for prod in st.session_state['shopify_df']['Product'].unique():
             if prod == item:
                 exact_match_found = True
-            elif 80 < fuzz.ratio(item, prod) < 100:
-                temp_matches.append((item, prod))
+                exact_matches.append(prod)
+            elif 90 < fuzz.ratio(item, prod) < 100:
+                temp_matches.append([item, prod])
         if not exact_match_found:
             fuzzy_matches += temp_matches
+    for m in exact_matches:
+        for i, f in enumerate(fuzzy_matches):
+            if m in f:
+                fuzzy_matches.pop(i)
     if fuzzy_matches:
         for f in fuzzy_matches:
             st.info(f'Check {artist_data["name"]}\'s product listings: did you mean **"{f[1]}"** instead of **"{f[0]}"**?')

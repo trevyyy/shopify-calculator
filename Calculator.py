@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import re
-import json
 from thefuzz import fuzz
 
 st.set_page_config(page_icon='🎨')
 
-with open('artists.json') as j:
-    ARTISTS = json.load(j)
+SHEET_ID = '19VEjnXTDYhZu2Yy7uQzQhKgynLB8DngUokQJupCeMN8'
+url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv'
+artist_data_full = pd.read_csv(url, on_bad_lines='skip')
+artist_data_full['items'] = artist_data_full['items'].apply(lambda x: [n.strip() for n in x.split(';')])
 
 
 def parse_id(product_id):
@@ -44,7 +45,12 @@ def convert_df(df):
     return df.to_csv().encode('utf-8')
 
 
-artist_data = st.selectbox('Artist', [*ARTISTS], format_func=lambda a: a['name'])
+artist_name = st.selectbox('Artist', list(artist_data_full['name']))
+artist_data = artist_data_full[artist_data_full.name == artist_name][['items', 'framed', 'unframed']]
+artist_data_pretty = artist_data.rename(columns={'items': 'Items', 'framed': 'Framed rate', 'unframed': 'Unframed rate'})
+artist_data_pretty['Framed rate'] = artist_data_pretty['Framed rate'].apply(lambda x: f'{x * 100}%')
+artist_data_pretty['Unframed rate'] = artist_data_pretty['Unframed rate'].apply(lambda x: f'{x * 100}%')
+st.dataframe(artist_data_pretty)
 shopify_file = st.file_uploader('Shopify file', type='csv')
 if shopify_file:
     shopify_df = pd.read_csv(shopify_file, usecols=['Order', 'Product', 'Variant', 'Gross sales'])
@@ -53,11 +59,7 @@ if shopify_file:
     shopify_df['Size'] = shopify_df['Variant'].apply(lambda n: n.split('/')[0].strip() if '/' in n else n)
     shopify_df['Frame'] = shopify_df['Variant'].apply(lambda n: n.split('/')[1].strip() if '/' in n else n)
     shopify_df = shopify_df[['Order', 'Product', 'Size', 'Frame', 'Sales']]
-    if 'shopify_df' not in st.session_state:
-        st.session_state['shopify_df'] = shopify_df
-
-if 'shopify_df' in st.session_state:
-    st.dataframe(st.session_state['shopify_df'], use_container_width=True)
+    st.dataframe(shopify_df, use_container_width=True, height=200)
     st.write('---')
 
     fuzzy_matches = []
@@ -65,7 +67,7 @@ if 'shopify_df' in st.session_state:
     for item in artist_data['items']:
         exact_match_found = False
         temp_matches = []
-        for prod in st.session_state['shopify_df']['Product'].unique():
+        for prod in shopify_df['Product'].unique():
             if prod == item:
                 exact_match_found = True
                 exact_matches.append(prod)
@@ -81,11 +83,11 @@ if 'shopify_df' in st.session_state:
         for f in fuzzy_matches:
             st.info(f'Check {artist_data["name"]}\'s product listings: did you mean **"{f[1]}"** instead of **"{f[0]}"**?')
 
-    person_df = st.session_state['shopify_df'][st.session_state['shopify_df']['Product'].isin(artist_data['items'])]
-    person_df['Percentage'] = [artist_data["unframed"] if f == 'Unframed' else artist_data["framed"] for f in person_df['Frame']]
+    person_df = shopify_df[shopify_df['Product'].isin(artist_data['items'][0])]
+    person_df['Percentage'] = [artist_data["unframed"][0] if f == 'Unframed' else artist_data["framed"][0] for f in person_df['Frame']]
     person_df['Cut'] = person_df['Sales'] * person_df['Percentage']
 
-    st.write(f'No. of orders: **{len(st.session_state["shopify_df"])}**')
+    st.write(f'No. of orders: **{len(shopify_df)}**')
     st.write(f'No. of orders that included print by artist: **:red[{len(person_df["Order"].unique())}]**')
     st.write(f'Total owed to artist: **:red[£{round(person_df["Cut"].sum(), 2)}]**')
 

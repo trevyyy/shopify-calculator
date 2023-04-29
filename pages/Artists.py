@@ -23,9 +23,9 @@ for i, a in enumerate(st.session_state['artists']):
     name = st.text_input('Name', value=a['name'], key=f'0-{i}-{a}')
     items = st.text_area('Prints', value='\n'.join(a['items']), help='Add each print on a new line', key=f'1-{i}-{a}')
     col1, col2, _, _ = st.columns(4)
-    framed = col1.number_input('Framed rate', value=a['framed'], max_value=1.0, k=generate_random_string())
+    framed = col1.number_input('Framed rate', value=a['framed'], max_value=1.0, key=generate_random_string())
     col1.caption(f'{framed:.0%}')
-    unframed = col2.number_input('Unframed rate', value=a['unframed'], max_value=1.0, k=generate_random_string())
+    unframed = col2.number_input('Unframed rate', value=a['unframed'], max_value=1.0, key=generate_random_string())
     col2.caption(f'{unframed:.0%}')
     new_data.append({'name': name, 'items': [i.strip() for i in items.splitlines() if i.strip()],
                      'framed': framed, 'unframed': unframed})

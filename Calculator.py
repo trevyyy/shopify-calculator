@@ -47,6 +47,7 @@ def convert_df(df):
 
 artist_name = st.selectbox('Artist', list(artist_data_full['name']))
 artist_data = artist_data_full[artist_data_full.name == artist_name][['items', 'framed', 'unframed']]
+artist_data = artist_data.reset_index(drop=True)
 artist_data_pretty = artist_data.rename(columns={'items': 'Items', 'framed': 'Framed rate', 'unframed': 'Unframed rate'})
 artist_data_pretty['Framed rate'] = artist_data_pretty['Framed rate'].apply(lambda x: f'{x * 100}%')
 artist_data_pretty['Unframed rate'] = artist_data_pretty['Unframed rate'].apply(lambda x: f'{x * 100}%')
@@ -82,7 +83,7 @@ if shopify_file:
     if fuzzy_matches:
         for f in fuzzy_matches:
             st.info(f'Check {artist_data["name"]}\'s product listings: did you mean **"{f[1]}"** instead of **"{f[0]}"**?')
-
+    print(artist_data['items'])
     person_df = shopify_df[shopify_df['Product'].isin(artist_data['items'][0])]
     person_df['Percentage'] = [artist_data["unframed"][0] if f == 'Unframed' else artist_data["framed"][0] for f in person_df['Frame']]
     person_df['Cut'] = person_df['Sales'] * person_df['Percentage']

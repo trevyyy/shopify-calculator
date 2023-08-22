@@ -54,6 +54,7 @@ if shopify_file:
         for f in fuzzy_matches:
             st.info(f'Check for typos in this product listing: did you mean **"{f[1]}"** instead of **"{f[0]}"**?')
 
+    to_pay_list = []
     for artist_name in list(artist_data_full['name']):
         artist_data = artist_data_full[artist_data_full.name == artist_name][['items', 'framed', 'unframed']]
         artist_data = artist_data.reset_index(drop=True)
@@ -72,10 +73,16 @@ if shopify_file:
         else:
             person_df['Total'] = []
 
+        to_pay_list.append((artist_name, round(person_df['Cut'].sum(), 2)))
+
         with ZipFile('tmp.zip', 'a') as zf:
             s = StringIO()
             person_df.to_csv(s, index=False, header=True)
             zf.writestr(f'{artist_name} {datetime.today().strftime("%d-%m-%Y")}.csv', s.getvalue())
+
+    df = pd.DataFrame(to_pay_list, columns=['Artist', 'Total'])
+    st.dataframe(df)
+    st.write(f':red[Total: £{round(sum([i[1] for i in to_pay_list]), 2)}]')
 
     with open("tmp.zip", "rb") as fp:
         btn = st.download_button(

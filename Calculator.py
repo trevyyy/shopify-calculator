@@ -7,21 +7,22 @@ from io import StringIO
 from zipfile import ZipFile
 from borb.pdf import Document, Alignment
 from borb.pdf import Page
-from borb.pdf import SingleColumnLayout, MultiColumnLayout
+from borb.pdf import SingleColumnLayout
 from borb.pdf import Paragraph
 from borb.pdf import PDF
 from borb.pdf import Image
 from borb.pdf import TableCell
-from borb.pdf import FlexibleColumnWidthTable
-from borb.pdf import Table
+from borb.pdf import FixedColumnWidthTable
 from pathlib import Path
 from decimal import Decimal
 import io
 from PIL import Image as PILimage
 
 st.set_page_config(page_icon='🎨')
-logo = PILimage.open('logo.png')
+logo = PILimage.open('logo2.png')
 st.image(logo)
+st.write('\n\n')
+st.write('\n\n')
 
 SHEET_ID = '19VEjnXTDYhZu2Yy7uQzQhKgynLB8DngUokQJupCeMN8'
 url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv'
@@ -33,6 +34,32 @@ def format_date(date):
     date, _ = date.split('T')
     year, month, day = date.split('-')
     return f'{day}/{month}/{year}'
+
+
+def split_df(df, chunk_size=20):
+    """Split a DataFrame into smaller chunks
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to split
+        chunk_size (int): The number of rows for each chunk
+
+    Returns:
+        A list of pandas DataFrames
+    """
+
+    chunks = []
+    num_chunks = len(df) // chunk_size + 1
+    for i in range(num_chunks):
+        if i == 0:
+            start = i * (chunk_size - 5)
+            end = (i + 1) * (chunk_size - 5)
+        else:
+            start = i * chunk_size
+            end = (i + 1) * chunk_size
+        chunk = df.iloc[start:end]
+        chunks.append(chunk)
+
+    return chunks
 
 
 shopify_file = st.file_uploader('Shopify file', type='csv')
@@ -63,7 +90,8 @@ if shopify_file and not st.session_state['already_run']:
                         exact_match_found = True
                         exact_matches.append(prod)
                     elif 90 < fuzz.ratio(item, prod) < 100:
-                        temp_matches.append([item, prod])
+                        if ''.join(set(item) - set(prod)).isalpha():
+                            temp_matches.append([item, prod])
                 if not exact_match_found:
                     fuzzy_matches += temp_matches
         for m in exact_matches:
@@ -105,79 +133,111 @@ if shopify_file and not st.session_state['already_run']:
                 # create an empty Document
                 pdf = Document()
 
-                # add an empty Page
-                page = Page()
-                pdf.add_page(page)
+                dfs = split_df(person_df)
 
-                # use a PageLayout (SingleColumnLayout in this case)
-                layout = SingleColumnLayout(page)
+                for n, df in enumerate(dfs):
+                    # add an empty Page
+                    page = Page()
+                    pdf.add_page(page)
 
-                # add a Paragraph object
-                layout.add(Paragraph("Sales Statement", font='Helvetica-Bold', font_size=Decimal(20)))
-                layout.add(Paragraph(datetime.now().strftime('%d %B %Y'), font='Helvetica-Bold', font_size=Decimal(10)))
-                months = {
-                            1: 'January',
-                            2: 'February',
-                            3: 'March',
-                            4: 'April',
-                            5: 'May',
-                            6: 'June',
-                            7: 'July',
-                            8: 'August',
-                            9: 'September',
-                            10: 'October',
-                            11: 'November',
-                            12: 'December'
-                        }
-                month = int(list(person_df['Date'])[0].split('/')[1])
-                year = list(person_df['Date'])[0].split('/')[2]
-                layout.add(Paragraph(f"Sales For {months.get(month)} {year}", font='Helvetica-Bold', font_size=Decimal(10)))
-                layout.add(Paragraph(artist_name, font='Helvetica-Bold', font_size=Decimal(10)))
-                layout.add(Paragraph(''))
+                    # use a PageLayout (SingleColumnLayout in this case)
+                    layout = SingleColumnLayout(page)
 
-                table_params = dict(border_top=False,
-                                    border_bottom=False,
-                                    border_left=False,
-                                    border_right=False,
-                                    padding_top=Decimal(5),
-                                    padding_bottom=Decimal(5),
-                                    padding_left=Decimal(10),
-                                    padding_right=Decimal(10))
-                table = FlexibleColumnWidthTable(number_of_rows=1 + len(person_df), number_of_columns=5)
-                table.add(TableCell(Paragraph("Date", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
-                table.add(TableCell(Paragraph("Print", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
-                table.add(TableCell(Paragraph("Size", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
-                table.add(TableCell(Paragraph("Frame", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
-                # table.add(TableCell(Paragraph("Price"), **table_params))
-                table.add(TableCell(Paragraph("Commission", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
+                    # add a Paragraph object
+                    if n == 0:
+                        layout.add(Paragraph("Sales Statement", font='Helvetica-Bold', font_size=Decimal(20)))
+                        layout.add(Paragraph(datetime.now().strftime('%d %B %Y'), font='Helvetica-Bold', font_size=Decimal(10)))
+                        months = {
+                                    1: 'January',
+                                    2: 'February',
+                                    3: 'March',
+                                    4: 'April',
+                                    5: 'May',
+                                    6: 'June',
+                                    7: 'July',
+                                    8: 'August',
+                                    9: 'September',
+                                    10: 'October',
+                                    11: 'November',
+                                    12: 'December'
+                                }
+                        month = int(list(person_df['Date'])[0].split('/')[1])
+                        year = list(person_df['Date'])[0].split('/')[2]
+                        layout.add(Paragraph(f"Sales For {months.get(month)} {year}", font='Helvetica-Bold', font_size=Decimal(10)))
+                        layout.add(Paragraph(artist_name, font='Helvetica-Bold', font_size=Decimal(10)))
+                        layout.add(Paragraph(''))
 
-                for _, row in person_df.iterrows():
-                    for column in ['Date', 'Product', 'Size', 'Frame', 'Cut']:
-                        val = str(row[column])
-                        if column == 'Cut':
-                            if '.' not in val:
-                                val += '.00'
-                            else:
-                                try:
-                                    if val[-3] != '.':
-                                        val += '0'
-                                    else:
+                    table_params = dict(border_top=False,
+                                        border_bottom=False,
+                                        border_left=False,
+                                        border_right=False,
+                                        padding_top=Decimal(5),
+                                        padding_bottom=Decimal(5),
+                                        padding_left=Decimal(10),
+                                        padding_right=Decimal(10))
+                    left_params = dict(border_top=False,
+                                        border_bottom=False,
+                                        border_left=False,
+                                        border_right=False,
+                                        padding_top=Decimal(5),
+                                        padding_bottom=Decimal(5),
+                                        padding_right=Decimal(10))
+                    right_params = dict(border_top=False,
+                                        border_bottom=False,
+                                        border_left=False,
+                                        border_right=False,
+                                        padding_top=Decimal(5),
+                                        padding_bottom=Decimal(5),
+                                        padding_right=Decimal(10))
+                    right_params_no_pad = dict(border_top=False,
+                                        border_bottom=False,
+                                        border_left=False,
+                                        border_right=False,
+                                        padding_right=Decimal(10))
+                    table = FixedColumnWidthTable(number_of_rows=1 + len(df), number_of_columns=5,
+                                                  column_widths=[Decimal(6), Decimal(16), Decimal(9.5), Decimal(6), Decimal(6.5)])
+                    table.add(TableCell(Paragraph("Date", font='Helvetica-Bold', font_size=Decimal(10)), **left_params))
+                    table.add(TableCell(Paragraph("Print", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
+                    table.add(TableCell(Paragraph("Size", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
+                    table.add(TableCell(Paragraph("Frame", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
+                    # table.add(TableCell(Paragraph("Price"), **table_params))
+                    table.add(TableCell(Paragraph("Commission", font='Helvetica-Bold', font_size=Decimal(10)), **right_params))
+
+                    for _, row in df.iterrows():
+                        for column in ['Date', 'Product', 'Size', 'Frame', 'Cut']:
+                            val = str(row[column])
+                            if column == 'Cut':
+                                if '.' not in val:
+                                    val += '.00'
+                                else:
+                                    try:
+                                        if val[-3] != '.':
+                                            val += '0'
+                                        else:
+                                            pass
+                                    except IndexError:
                                         pass
-                                except IndexError:
-                                    pass
-                        if column == 'Cut':
-                            table.add(TableCell(Paragraph(val, font_size=Decimal(10), horizontal_alignment=Alignment.RIGHT), **table_params))
-                        else:
-                            table.add(TableCell(Paragraph(val, font_size=Decimal(10)), **table_params))
+                            if column == 'Cut':
+                                table.add(TableCell(Paragraph(val, font_size=Decimal(10),
+                                                              horizontal_alignment=Alignment.RIGHT), **right_params))
+                            elif column == 'Date':
+                                table.add(TableCell(Paragraph(val, font_size=Decimal(10)), **left_params))
+                            else:
+                                table.add(TableCell(Paragraph(val, font_size=Decimal(10)), **table_params))
 
-                layout.add(table)
-                layout.add(Paragraph(str(list(person_df['Total'])[0]), font='Helvetica-Bold', font_size=Decimal(10),
-                                     horizontal_alignment=Alignment.RIGHT))
-                layout.add(Paragraph('All commission is paid out in GBP.', font='Helvetica', font_size=Decimal(10)))
-                image_width = 128
-                image_length = image_width * 0.3028359375
-                layout.add(Image(Path('logo.png'), width=Decimal(image_width), height=Decimal(image_length),
-                                 horizontal_alignment=Alignment.RIGHT))
+                    layout.add(table)
+
+                    if n + 1 == len(dfs):
+                        layout.add(Paragraph('Total — ' + str(list(person_df['Total'])[0]), font='Helvetica-Bold', font_size=Decimal(10),
+                                             horizontal_alignment=Alignment.RIGHT, **right_params_no_pad))
+                        layout.add(Paragraph('All commission is paid out in GBP', font='Helvetica', font_size=Decimal(10),
+                                             horizontal_alignment=Alignment.RIGHT, **right_params_no_pad))
+                        layout.add(Paragraph(''))
+
+                        image_width = 128
+                        image_length = image_width * 0.08845491097070649
+                        layout.add(Image(Path('logo2.png'), width=Decimal(image_width), height=Decimal(image_length),
+                                         horizontal_alignment=Alignment.RIGHT))
 
                 # store the PDF
                 pdf_data = io.BytesIO()

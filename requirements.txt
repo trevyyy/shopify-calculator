@@ -1,3 +1,5 @@
-streamlit
-pandas
-thefuzz
+streamlit~=1.20.0
+pandas~=1.5.2
+thefuzz~=0.19.0
+borb~=2.1.16
+Pillow~=9.4.0

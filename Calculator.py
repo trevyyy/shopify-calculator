@@ -17,6 +17,8 @@ from pathlib import Path
 from decimal import Decimal
 import io
 from PIL import Image as PILimage
+pd.options.mode.chained_assignment = None
+
 
 st.set_page_config(page_icon='🎨')
 logo = PILimage.open('logo2.png')
@@ -36,7 +38,7 @@ def format_date(date):
     return f'{day}/{month}/{year}'
 
 
-def split_df(df, chunk_size=20):
+def split_df(df, chunk_size=28):
     """Split a DataFrame into smaller chunks
 
     Args:
@@ -51,8 +53,8 @@ def split_df(df, chunk_size=20):
     num_chunks = len(df) // chunk_size + 1
     for i in range(num_chunks):
         if i == 0:
-            start = i * (chunk_size - 5)
-            end = (i + 1) * (chunk_size - 5)
+            start = i * (chunk_size - 8)
+            end = (i + 1) * (chunk_size - 8)
         else:
             start = i * chunk_size
             end = (i + 1) * chunk_size
@@ -206,6 +208,8 @@ if shopify_file and not st.session_state['already_run']:
                     for _, row in df.iterrows():
                         for column in ['Date', 'Product', 'Size', 'Frame', 'Cut']:
                             val = str(row[column])
+                            if column == 'Product':
+                                val = val.rsplit('-', 1)[0]
                             if column == 'Cut':
                                 if '.' not in val:
                                     val += '.00'
@@ -225,6 +229,7 @@ if shopify_file and not st.session_state['already_run']:
                             else:
                                 table.add(TableCell(Paragraph(val, font_size=Decimal(10)), **table_params))
 
+                    print(artist_name, n)
                     layout.add(table)
 
                     if n + 1 == len(dfs):

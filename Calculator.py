@@ -1,3 +1,4 @@
+import math
 import os
 import streamlit as st
 import pandas as pd
@@ -25,6 +26,21 @@ logo = PILimage.open('logo2.png')
 st.image(logo)
 st.write('\n\n')
 st.write('\n\n')
+
+current_date = datetime.now()
+col1, col2 = st.columns(2)
+start_date = col1.date_input('Start date', value=current_date.replace(day=1, month=12 if current_date.month == 1 else current_date.month - 1))
+try:
+    end_date = col2.date_input('End date', value=current_date.replace(day=31, month=12 if current_date.month == 1 else current_date.month - 1))
+except ValueError:
+    try:
+        end_date = col2.date_input('End date', value=current_date.replace(day=30, month=12 if current_date.month == 1 else current_date.month - 1))
+    except ValueError:
+        end_date = col2.date_input('End date', value=current_date.replace(day=28, month=12 if current_date.month == 1 else current_date.month - 1))
+
+start_date = start_date.strftime('%-d %B, %Y')
+end_date = end_date.strftime('%-d %B, %Y')
+
 
 SHEET_ID = '19VEjnXTDYhZu2Yy7uQzQhKgynLB8DngUokQJupCeMN8'
 url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv'
@@ -62,6 +78,20 @@ def split_df(df, chunk_size=28):
         chunks.append(chunk)
 
     return chunks
+
+
+def fix_decimals(amount):
+    if '.' not in amount:
+        amount += '.00'
+    else:
+        try:
+            if amount[-3] != '.':
+                amount += '0'
+            else:
+                pass
+        except IndexError:
+            pass
+    return '£' + amount
 
 
 shopify_file = st.file_uploader('Shopify file', type='csv')
@@ -128,6 +158,9 @@ if shopify_file and not st.session_state['already_run']:
             if person_df.empty:
                 continue
 
+            product_count = person_df['Product'].value_counts().to_dict()
+            product_count = {k.rsplit('-', 1)[0]: v for k, v in product_count.items()}
+
             with ZipFile('tmp.zip', 'a') as zf:
                 s = StringIO()
                 person_df.to_csv(s, index=False, header=True)
@@ -148,7 +181,6 @@ if shopify_file and not st.session_state['already_run']:
                     # add a Paragraph object
                     if n == 0:
                         layout.add(Paragraph("Sales Statement", font='Helvetica-Bold', font_size=Decimal(20)))
-                        layout.add(Paragraph(datetime.now().strftime('%d %B %Y'), font='Helvetica-Bold', font_size=Decimal(10)))
                         months = {
                                     1: 'January',
                                     2: 'February',
@@ -165,7 +197,7 @@ if shopify_file and not st.session_state['already_run']:
                                 }
                         month = int(list(person_df['Date'])[0].split('/')[1])
                         year = list(person_df['Date'])[0].split('/')[2]
-                        layout.add(Paragraph(f"Sales For {months.get(month)} {year}", font='Helvetica-Bold', font_size=Decimal(10)))
+                        layout.add(Paragraph(f"{start_date} – {end_date}", font='Helvetica-Bold', font_size=Decimal(10)))
                         layout.add(Paragraph(artist_name, font='Helvetica-Bold', font_size=Decimal(10)))
                         layout.add(Paragraph(''))
 
@@ -202,7 +234,6 @@ if shopify_file and not st.session_state['already_run']:
                     table.add(TableCell(Paragraph("Print", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
                     table.add(TableCell(Paragraph("Size", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
                     table.add(TableCell(Paragraph("Frame", font='Helvetica-Bold', font_size=Decimal(10)), **table_params))
-                    # table.add(TableCell(Paragraph("Price"), **table_params))
                     table.add(TableCell(Paragraph("Commission", font='Helvetica-Bold', font_size=Decimal(10)), **right_params))
 
                     for _, row in df.iterrows():
@@ -211,16 +242,7 @@ if shopify_file and not st.session_state['already_run']:
                             if column == 'Product':
                                 val = val.rsplit('-', 1)[0]
                             if column == 'Cut':
-                                if '.' not in val:
-                                    val += '.00'
-                                else:
-                                    try:
-                                        if val[-3] != '.':
-                                            val += '0'
-                                        else:
-                                            pass
-                                    except IndexError:
-                                        pass
+                                val = fix_decimals(val)
                             if column == 'Cut':
                                 table.add(TableCell(Paragraph(val, font_size=Decimal(10),
                                                               horizontal_alignment=Alignment.RIGHT), **right_params))
@@ -229,11 +251,12 @@ if shopify_file and not st.session_state['already_run']:
                             else:
                                 table.add(TableCell(Paragraph(val, font_size=Decimal(10)), **table_params))
 
-                    print(artist_name, n)
                     layout.add(table)
 
                     if n + 1 == len(dfs):
-                        layout.add(Paragraph('Total — ' + str(list(person_df['Total'])[0]), font='Helvetica-Bold', font_size=Decimal(10),
+                        total_amount = list(person_df['Total'])[0]
+                        total_amount = f'{total_amount:,}'
+                        layout.add(Paragraph('Total — ' + fix_decimals(total_amount), font='Helvetica-Bold', font_size=Decimal(10),
                                              horizontal_alignment=Alignment.RIGHT, **right_params_no_pad))
                         layout.add(Paragraph('All commission is paid out in GBP', font='Helvetica', font_size=Decimal(10),
                                              horizontal_alignment=Alignment.RIGHT, **right_params_no_pad))
@@ -243,6 +266,28 @@ if shopify_file and not st.session_state['already_run']:
                         image_length = image_width * 0.08845491097070649
                         layout.add(Image(Path('logo2.png'), width=Decimal(image_width), height=Decimal(image_length),
                                          horizontal_alignment=Alignment.RIGHT))
+
+                        layout.add(Paragraph(''))
+
+                        # print(product_count)
+                        # print(math.ceil(len(product_count) // 2))
+                        layout.add(Paragraph('Summary', font='Helvetica-Bold', font_size=Decimal(10)))
+                        table = FixedColumnWidthTable(number_of_rows=math.ceil(len(product_count) / 2), number_of_columns=2)
+
+                        dict_items = list(product_count.items())
+
+                        mid = math.ceil(len(dict_items) / 2)
+
+                        list1 = [f"{k} ({v} sold)" for k, v in dict_items[:mid]]
+                        list2 = [f"{k} ({v} sold)" for k, v in dict_items[mid:]]
+                        if len(list2) < len(list1):
+                            list2.append('')
+
+                        for left, right in zip(list1, list2):
+                            table.add(TableCell(Paragraph(left, font='Helvetica', font_size=Decimal(8)), **left_params))
+                            table.add(TableCell(Paragraph(right, font='Helvetica', font_size=Decimal(8)), **left_params))
+                            # layout.add(Paragraph(f'{k} ({v} sold)', font='Helvetica', font_size=Decimal(8)))
+                        layout.add(table)
 
                 # store the PDF
                 pdf_data = io.BytesIO()
@@ -259,7 +304,7 @@ if st.session_state['already_run']:
     st.write('---')
     df = pd.DataFrame(st.session_state['to_pay_list'], columns=['Artist', 'Total'])
     st.dataframe(df)
-    st.write(f':red[Total: £{round(sum([i[1] for i in st.session_state["to_pay_list"]]), 2)}]')
+    st.write(f':red[Total: £{round(sum([i[1] for i in st.session_state["to_pay_list"]]), 2):,}]')
     with open("tmp.zip", "rb") as fp:
         btn = st.download_button(
             label="Download ZIP",

@@ -18,6 +18,7 @@ from pathlib import Path
 from decimal import Decimal
 import io
 from PIL import Image as PILimage
+from unidecode import unidecode
 pd.options.mode.chained_assignment = None
 
 
@@ -46,6 +47,8 @@ SHEET_ID = '19VEjnXTDYhZu2Yy7uQzQhKgynLB8DngUokQJupCeMN8'
 url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv'
 artist_data_full = pd.read_csv(url, on_bad_lines='skip')
 artist_data_full['items'] = artist_data_full['items'].apply(lambda x: [n.strip() for n in x.split(';')])
+artist_data_full['name'] = artist_data_full['name'].apply(lambda x: unidecode(x))
+artist_data_full['items'] = [[unidecode(i) for i in data] for data in artist_data_full['items']]
 
 
 def format_date(date):
@@ -109,6 +112,7 @@ if shopify_file and not st.session_state['already_run']:
         shopify_df['Size'] = shopify_df['Variant'].apply(lambda n: n.split('/')[0].strip() if '/' in n else n)
         shopify_df['Frame'] = shopify_df['Variant'].apply(lambda n: n.split('/')[1].strip() if '/' in n else n)
         shopify_df['Date'] = shopify_df['Date'].apply(lambda n: format_date(n))
+        shopify_df['Product'] = shopify_df['Product'].apply(lambda x: unidecode(x))
         st.session_state['shopify_df'] = shopify_df[['Date', 'Order', 'Product', 'Size', 'Frame', 'Sales']]
 
         fuzzy_matches = []
